@@ -3,7 +3,7 @@ ADSP - Algorithms and Data Structures for Protein Sequence Analysis
 A series of tools developed since 1986 for the analysis of protein and DNA
 sequences.
 
-Not everything is here yet, more will be added as I added tests and migrate
+Not everything is here yet, more will be added as I add tests and migrate
 to Linux. I and starting with a suite of database scanning tools and extending
 from there.
 
