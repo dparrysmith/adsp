@@ -27,8 +27,8 @@ It can read single or multiple table files or segment files.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <thread.h>
-#include <synch.h>
+#include <pthread.h>
+/*#include <synch.h> */
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -85,7 +85,7 @@ typedef struct link_down link_down;
 struct fth
 {
 /* Feature header structure */
-	mutex_t mlock;
+	pthread_mutex_t mlock;
 	int len_feature;
 	int max_score_feature;
 	char file_spec[DCL_STRING];
@@ -198,11 +198,11 @@ int ccount = 0;
 int count;      /* Increment to indicate how many sequences have been processed */
 int input_data_type;/* segments or table files */
 /* Threads stuff */
-mutex_t read_file_lock;
-mutex_t seq_count_lock;
-mutex_t merge_lock;
-mutex_t translate_lock;
-thread_t thread_id[MAX_THREADS];
+pthread_mutex_t read_file_lock;
+pthread_mutex_t seq_count_lock;
+pthread_mutex_t merge_lock;
+pthread_mutex_t translate_lock;
+pthread_t thread_id[MAX_THREADS];
 /* mmap stuff */
 char *src;
 struct stat statbuf; /* for the fast db reading */
@@ -503,10 +503,12 @@ char *p;
 		switch (scan_proc)
 		{
 			case SINGLE_SCAN:
-		error = thr_create((void *)NULL, (size_t)NULL, scan_single, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ;
+/*		error = thr_create((void *)NULL, (size_t)NULL, scan_single, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ; */
+		error = thr_create(&thread_id[th], (void *)NULL, scan_single, (void *)NULL ) ;
 			break;
 			case NSINGLE_SCAN:
-		error = thr_create((void *)NULL, (size_t)NULL, scan_nsingle, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ;
+/*		error = thr_create((void *)NULL, (size_t)NULL, scan_nsingle, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ; */
+		error = thr_create(&thread_id[th], (void *)NULL, scan_nsingle, (void *)NULL ) ;
 			break;
 			default:
 			fprintf(stderr,"--- Emergency stop - requested scan method not implemented.\n");
@@ -524,7 +526,11 @@ char *p;
 /* Now catch the threads as they terminate */
 for (th = 0; th < MAX_THREADS; th++)
 {
-	thr_join((thread_t)0, NULL, NULL);
+	error = pthread_join( thread_id[th], NULL);
+    if ( error != 0 )
+    {
+        fprintf(stderr, "Join thread returned: %d", error);
+    }
 }
 	fclose(data);
 	printf("\n%d sequences processed, %d residues\n",seq_count-prev_i,total_residues-prev_res);
@@ -603,10 +609,16 @@ data format (single or pairwise)
 feature index
 */
 char *p;
+int status;
 
 /* Make a new feature header structure and add to the list */
 feature[f_ind] = (fth *) malloc(sizeof(fth));
 demand(feature[f_ind], malloc failed in read_segments);
+
+/* for posix threads, need to initialise the mutex */
+status = pthread_mutex_init( &feature[f_ind]->mlock, NULL);
+/* Remember to check the status */
+
 /* New for PRINTS version */
 feature[f_ind]->code[0] = '\0';
 strcpy(feature[f_ind]->file_spec,fsp); /* fsp is really a pointer to line ! */
@@ -1580,13 +1592,13 @@ for ( ; ; )
 {
 block = 1;
 #ifdef SLOW
-mutex_lock(&read_file_lock);
+pthread_mutex_lock(&read_file_lock);
 if ((mine = read_file(block, scan_modifier)) == NULL) ret_flag = 1;
-mutex_unlock(&read_file_lock);
+pthread_mutex_unlock(&read_file_lock);
 #else
-mutex_lock(&read_file_lock);
+pthread_mutex_lock(&read_file_lock);
 if ((mine = read_file_quick(block, scan_modifier, statbuf.st_size)) == NULL) ret_flag = 1;
-mutex_unlock(&read_file_lock);
+pthread_mutex_unlock(&read_file_lock);
 #endif
 if (ret_flag == 1)
 {
@@ -1659,9 +1671,9 @@ while (f_ind < MAX_FEATURES && feature[f_ind] != NULL)
 	}
 	else
 	{
-		mutex_lock(&feature[f_ind]->mlock);
+		pthread_mutex_lock(&feature[f_ind]->mlock);
 		merge_hits(mine, f_ind);
-		mutex_unlock(&feature[f_ind]->mlock);
+		pthread_mutex_unlock(&feature[f_ind]->mlock);
 	}
 	for (i=0; i<=num_scans; i++)
 	{
@@ -1672,7 +1684,7 @@ while (f_ind < MAX_FEATURES && feature[f_ind] != NULL)
 }/* End while */
 mine = mine->next; /* Get the next sequence in the list */
 } /* End while mine != NULL */
-mutex_lock(&seq_count_lock);
+pthread_mutex_lock(&seq_count_lock);
 seq_count += 1;
 total_residues += residues(mine_one);
 ccount += 1;
@@ -1681,7 +1693,7 @@ if (ccount >= count)
 	printf("%d\n", seq_count);
 	ccount = 0;
 }
-mutex_unlock(&seq_count_lock);
+pthread_mutex_unlock(&seq_count_lock);
 purge_all(mine_one);
 mine = NULL;
 } /* End for ever */
@@ -1721,13 +1733,13 @@ for ( ; ; )
 {
 block = 1;
 #ifdef SLOW
-mutex_lock(&read_file_lock);
+pthread_mutex_lock(&read_file_lock);
 if ((mine = read_file(block, scan_modifier)) == NULL) ret_flag = 1;
-mutex_unlock(&read_file_lock);
+pthread_mutex_unlock(&read_file_lock);
 #else
-mutex_lock(&read_file_lock);
+pthread_mutex_lock(&read_file_lock);
 if ((mine = read_file_quick(block, scan_modifier, statbuf.st_size)) == NULL) ret_flag = 1;
-mutex_unlock(&read_file_lock);
+pthread_mutex_unlock(&read_file_lock);
 #endif
 if (ret_flag == 1)
 {
@@ -1800,9 +1812,9 @@ while (f_ind < MAX_FEATURES && feature[f_ind] != NULL)
 	}
 	else
 	{
-		mutex_lock(&feature[f_ind]->mlock);
+		pthread_mutex_lock(&feature[f_ind]->mlock);
 		merge_hits(mine, f_ind);
-		mutex_unlock(&feature[f_ind]->mlock);
+		pthread_mutex_unlock(&feature[f_ind]->mlock);
 	}
 	for (i=0; i<=num_scans; i++)
 	{
@@ -1813,7 +1825,7 @@ while (f_ind < MAX_FEATURES && feature[f_ind] != NULL)
 }/* End while */
 mine = mine->next; /* Get the next sequence in the list */
 } /* End while mine != NULL */
-mutex_lock(&seq_count_lock);
+pthread_mutex_lock(&seq_count_lock);
 seq_count += 1;
 total_residues += residues(mine_one);
 ccount += 1;
@@ -1822,7 +1834,7 @@ if (ccount >= count)
 	printf("%d\n", seq_count);
 	ccount = 0;
 }
-mutex_unlock(&seq_count_lock);
+pthread_mutex_unlock(&seq_count_lock);
 purge_all(mine_one);
 mine = NULL;
 } /* End for ever */
