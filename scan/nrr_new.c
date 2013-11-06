@@ -8,9 +8,6 @@ Updated:	February 1994 (translations)
 Version:	2.0	
 Implemenation:	Unix System V and VAX/VMS
 
-NOTE : This source code may not be distributed or modified in
-any way without the prior consent of the author.
-
 */
 
 #include <stdio.h>
@@ -18,7 +15,6 @@ any way without the prior consent of the author.
 #include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
-#include <synch.h>
 
 /* #include <malloc.h>*/ /* for SUNOS */
 #include "rr.h"
@@ -40,7 +36,7 @@ FILE *gcode;
 /* for the translator */
 char *gencode[5][5];
 
-mutex_t mapfile_lock;
+pthread_mutex_t mapfile_lock;
 char *gptr = (char *)NULL; /* global pointer to the beginning of the next
 sequence in the database */
 int end_of_file = 0; /* 1 indicates end of file */
@@ -524,7 +520,7 @@ current = mres;
 count = 1;
 while (current != NULL)
 {
-	printf("Sequence: %d at %d\n",count,current);
+	printf("Sequence: %d at %p\n",count,current);
 	printf("code = %s\n",current->code);
 	printf("comment = %s\n",current->comment);
 	if (current->assoc != NULL)
@@ -596,7 +592,7 @@ while (current != NULL)
 }
 sprintf(msg,"Total number of sequences : %d  (%d residues, %d gaps)\n",
 	tot_seqs,tot_res,tot_gap);
-printf(msg);
+puts(msg);
 return(tot_seqs);
 }/* End of numbers */
 
@@ -769,7 +765,7 @@ printf("File name :");
 scanf("%s",file_nm);
 ret_val=write_als();
 sprintf(msg,"%d lines written to %s",ret_val,file_nm);
-printf(msg);
+puts(msg);
 return(0);
 }
 
@@ -1021,7 +1017,7 @@ for (i = 0; i < 3 ; i++)
 			ap = strchr(gcode_template, *dna_ptr);
 			if (ap != (char *)NULL)
 			{
-				ind[a] = (int)ap - (int)gcode_template; 
+				ind[a] = (char *)ap - (char *)gcode_template; 
 			}
 			else
 			{
@@ -1099,7 +1095,7 @@ for (i = 0; i < 3 ; i++)
 			ap = strchr(gcode_template6, *dna_ptr);
 			if (ap != (char *)NULL)
 			{
-				ind[a] = (int)ap - (int)gcode_template6; 
+				ind[a] = (char *)ap - (char *)gcode_template6; 
 			}
 			else
 			{

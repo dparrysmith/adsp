@@ -504,11 +504,11 @@ char *p;
 		{
 			case SINGLE_SCAN:
 /*		error = thr_create((void *)NULL, (size_t)NULL, scan_single, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ; */
-		error = thr_create(&thread_id[th], (void *)NULL, scan_single, (void *)NULL ) ;
+		error = pthread_create(&thread_id[th], (void *)NULL, scan_single, (void *)NULL ) ;
 			break;
 			case NSINGLE_SCAN:
 /*		error = thr_create((void *)NULL, (size_t)NULL, scan_nsingle, (void *)NULL, THR_NEW_LWP, &thread_id[th]) ; */
-		error = thr_create(&thread_id[th], (void *)NULL, scan_nsingle, (void *)NULL ) ;
+		error = pthread_create(&thread_id[th], (void *)NULL, scan_nsingle, (void *)NULL ) ;
 			break;
 			default:
 			fprintf(stderr,"--- Emergency stop - requested scan method not implemented.\n");
@@ -518,11 +518,11 @@ char *p;
 		if (error != 0)
 		{
 			fprintf(stderr,"thr_create returned non-zero (%d)\n", error);
-			perror("thr_create");
+			perror("pthread_create");
 			exit(error);
 		}
 	}
-	printf("Concurrency set to: %d\n", thr_getconcurrency());
+	printf("Concurrency set to: %d\n", pthread_getconcurrency());
 /* Now catch the threads as they terminate */
 for (th = 0; th < MAX_THREADS; th++)
 {
